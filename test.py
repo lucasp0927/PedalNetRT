@@ -22,10 +22,8 @@ def test(args):
     x_test = data["x_test"]
     prev_sample = np.concatenate((np.zeros_like(x_test[0:1]), x_test[:-1]), axis=0)
     pad_x_test = np.concatenate((prev_sample, x_test), axis=2)
-    print(pad_x_test.shape)
     y_pred = []
     for x in np.array_split(pad_x_test, 10):
-        print(x.shape)
         result = model(torch.from_numpy(x)).numpy()
         y_pred.append(result)
 
