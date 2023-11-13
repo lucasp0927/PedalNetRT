@@ -63,7 +63,10 @@ For a great explanation of how it works, check out this [blog post](http://teddy
    ```sh
    python -m pip install -r requirements-dev.txt
    ```
-
+## setup (WSL2)
+```
+conda install pytorch torchvision torchaudio pytorch-cuda -c pytorch -c nvidia
+```
 ## Setup (Docker)
 
 1. [Install Docker](https://docs.docker.com/engine/install/)
