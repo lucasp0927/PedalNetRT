@@ -51,7 +51,7 @@ def _conv_stack(dilations, in_channels, out_channels, kernel_size):
 class WaveNet(nn.Module):
     def __init__(self, num_channels, dilation_depth, num_repeat, kernel_size=2):
         super(WaveNet, self).__init__()
-        dilations = [2 ** d for d in range(dilation_depth)] * num_repeat
+        dilations = [2**d for d in range(dilation_depth)] * num_repeat
         internal_channels = int(num_channels * 2)
         self.hidden = _conv_stack(dilations, num_channels, internal_channels, kernel_size)
         self.residuals = _conv_stack(dilations, num_channels, num_channels, 1)
@@ -107,15 +107,16 @@ def pre_emphasis_filter(x, coeff=0.95):
 
 
 class PedalNet(pl.LightningModule):
-    def __init__(self, hparams):
+    def __init__(self, num_channels, dilation_depth, num_repeat, kernel_size, learning_rate, batch_size, model):
         super(PedalNet, self).__init__()
+        self.save_hyperparameters()
+        self.validation_step_outputs = []
         self.wavenet = WaveNet(
-            num_channels=hparams["num_channels"],
-            dilation_depth=hparams["dilation_depth"],
-            num_repeat=hparams["num_repeat"],
-            kernel_size=hparams["kernel_size"],
+            num_channels=self.hparams["num_channels"],
+            dilation_depth=self.hparams["dilation_depth"],
+            num_repeat=self.hparams["num_repeat"],
+            kernel_size=self.hparams["kernel_size"],
         )
-        self.hparams = hparams
 
     def prepare_data(self):
         ds = lambda x, y: TensorDataset(torch.from_numpy(x), torch.from_numpy(y))
@@ -132,10 +133,11 @@ class PedalNet(pl.LightningModule):
             shuffle=True,
             batch_size=self.hparams.batch_size,
             num_workers=4,
+            persistent_workers=True,
         )
 
     def val_dataloader(self):
-        return DataLoader(self.valid_ds, batch_size=self.hparams.batch_size, num_workers=4)
+        return DataLoader(self.valid_ds, batch_size=self.hparams.batch_size, num_workers=4, persistent_workers=True)
 
     def forward(self, x):
         return self.wavenet(x)
@@ -151,9 +153,11 @@ class PedalNet(pl.LightningModule):
         x, y = batch
         y_pred = self.forward(x)
         loss = error_to_signal(y[:, :, -y_pred.size(2) :], y_pred).mean()
+        self.validation_step_outputs.append(loss)
         return {"val_loss": loss}
 
-    def validation_epoch_end(self, outs):
-        avg_loss = torch.stack([x["val_loss"] for x in outs]).mean()
-        logs = {"val_loss": avg_loss}
-        return {"avg_val_loss": avg_loss, "log": logs}
+    def on_validation_epoch_end(self):
+        # epoch_average = torch.stack([x["val_loss"] for x in self.validation_step_outputs]).mean()
+        epoch_average = torch.stack(self.validation_step_outputs).mean()
+        self.log("validation_epoch_average", epoch_average)
+        self.validation_step_outputs.clear()

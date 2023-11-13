@@ -17,12 +17,17 @@ def main(args):
 
     """
 
-    prepare(args)
-    model = PedalNet(vars(args))
+    hparams = vars(args)
+    model = PedalNet(
+        num_channels=hparams["num_channels"],
+        dilation_depth=hparams["dilation_depth"],
+        num_repeat=hparams["num_repeat"],
+        kernel_size=hparams["kernel_size"],
+        learning_rate=hparams["learning_rate"],
+        batch_size=hparams["batch_size"],
+        model=hparams["model"],
+    )
     trainer = pl.Trainer(
-        resume_from_checkpoint=args.model if args.resume else None,
-        gpus=None if args.cpu or args.tpu_cores else args.gpus,
-        tpu_cores=args.tpu_cores,
         log_every_n_steps=100,
         max_epochs=args.max_epochs,
     )
